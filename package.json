@@ -1,0 +1,32 @@
+{
+  "name": "snpm",
+  "version": "1.0.0",
+  "description": "Secure NPM PoC",
+  "main": "registry.js",
+  "dependencies": {
+    "body-parser": "^1.18.2",
+    "express": "^4.16.2",
+    "node-fetch": "^1.7.3",
+    "npm": "^5.6.0",
+    "targz": "^1.0.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "start": "node registry.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wilk/snpm.git"
+  },
+  "keywords": [],
+  "author": {
+    "name": "Vincenzo (Wilk) Ferrari",
+    "email": "wilk3ert@gmail.com",
+    "url": "https://github.com/wilk"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/wilk/snpm/issues"
+  },
+  "homepage": "https://github.com/wilk/snpm#readme"
+}
