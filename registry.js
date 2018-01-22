@@ -1,5 +1,4 @@
 const express = require('express'),
-  bodyParser = require('body-parser'),
   fetch = require('node-fetch'),
   fs = require('fs'),
   util = require('util'),
@@ -8,10 +7,12 @@ const express = require('express'),
   tar = require('targz'),
   npm = require('npm'),
   crypto = require('crypto'),
+  server = express(),
+  http = require('http').Server(server),
+  io = require('socket.io')(http)
   decompressAsync = util.promisify(tar.decompress),
   mkdtempAsync = util.promisify(fs.mkdtemp),
   readFileAsync = util.promisify(fs.readFile),
-  server = express(),
   port = process.env.REGISTRY_PORT || 3000
 
 const saveArchive = (response, tarFile) => {
@@ -58,92 +59,104 @@ const runAsync = command => {
   })
 }
 
-server.use(bodyParser.json())
-server.post('/publish', async (req, res) => {
-  const {url, version, checksum} = req.body
+const closeConnection = (socket, error) => {
+  socket.emit('error', error)
+  socket.disconnect(true)
+}
 
-  if (!url || !url.includes('github.com')) return res.status(400).send('Invalid Github URL')
-  if (!version) return res.status(400).send('Invalid version')
-  if (!checksum) return res.status(400).send('Invalid checksum')
+const notifyMessage = (socket, message) => {
+  console.log(message)
+  socket.emit('message', message)
+}
 
-  // covering /<owner>/<repo> urls
-  const splitUrl = url.split('/')
+io.on('connection', socket => {
+  console.log('Incoming connection...')
 
-  // covering also git@github.com:<owner>/<repo> urls
-  let owner = splitUrl[splitUrl.length - 2]
-  const ownerSplit = owner.split(':')
-  if (ownerSplit.length > 1 && ownerSplit[1].length > 0) owner = ownerSplit[1]
-  const repo = splitUrl[splitUrl.length - 1].replace('.git', '')
+  socket.on('publish', async payload => {
+    const {url, version} = payload
 
-  let destPath, destFile
-  try {
-    console.log('Fetching repo archive...')
-    const tarFile = `v${version}.tar.gz`
-    const response = await fetch(`https://github.com/${owner}/${repo}/archive/${tarFile}`)
-    const archive = await saveArchive(response, tarFile)
+    if (!url || !url.includes('github.com')) return closeConnection(socket, 'Invalid Github URL')
+    if (!version) return closeConnection(socket, 'Invalid version')
 
-    destPath = archive.destPath
-    destFile = archive.destFile
-  } catch (err) {
-    console.error(err)
-    return res.status(500).send('Cannot fetch project tar.gz')
-  }
+    // covering /<owner>/<repo> urls
+    const splitUrl = url.split('/')
 
-  try {
-    console.log('Decompressing repo archive...')
-    await decompressAsync({src: destFile, dest: destPath})
+    // covering also git@github.com:<owner>/<repo> urls
+    let owner = splitUrl[splitUrl.length - 2]
+    const ownerSplit = owner.split(':')
+    if (ownerSplit.length > 1 && ownerSplit[1].length > 0) owner = ownerSplit[1]
+    const repo = splitUrl[splitUrl.length - 1].replace('.git', '')
 
-    process.chdir(path.resolve(destPath, `${repo}-${version}`))
-  } catch (err) {
-    console.error(err)
-    return res.status(500).send('Cannot untar project tar.gz')
-  }
+    let destPath, destFile
+    try {
+      notifyMessage(socket, 'Fetching repo archive...')
+      const tarFile = `v${version}.tar.gz`
+      const response = await fetch(`https://github.com/${owner}/${repo}/archive/${tarFile}`)
+      const archive = await saveArchive(response, tarFile)
 
-  let pkg
-  try {
-    console.log('Installing repo deps...')
-    await loadAsync({
-      loglevel: 'silent',
-      progress: false
-    })
+      destPath = archive.destPath
+      destFile = archive.destFile
+    } catch (err) {
+      console.error(err)
+      return closeConnection(socket, 'Cannot fetch project tar.gz')
+    }
 
-    const results = await Promise.all([
-      (async () => {
-        const file = await readFileAsync(path.resolve(process.cwd(), 'package.json'))
-        return JSON.parse(file)
-      })(),
-      installAsync(process.cwd())
-    ])
+    try {
+      notifyMessage(socket, 'Decompressing repo archive...')
+      await decompressAsync({src: destFile, dest: destPath})
 
-    pkg = results[0]
-  } catch (err) {
-    console.error(err)
-    return res.status(500).send('Cannot install project dependencies')
-  }
+      process.chdir(path.resolve(destPath, `${repo}-${version}`))
+    } catch (err) {
+      console.error(err)
+      return closeConnection(socket, 'Cannot untar project tar.gz')
+    }
 
-  try {
-    console.log('Building repo...')
-    await runAsync('build')
-  } catch (err) {
-    console.error(err)
-    return res.status(500).send('Cannot build project')
-  }
+    let pkg
+    try {
+      notifyMessage(socket, 'Installing repo deps...')
+      await loadAsync({
+        loglevel: 'silent',
+        progress: false
+      })
 
-  try {
-    console.log('Checking checksum...')
-    const sum = crypto.createHash('sha1')
-    const file = await readFileAsync(path.resolve(process.cwd(), pkg.bin))
-    sum.update(file)
-    if (sum.digest('hex') !== pkg.checksums.sha1) return res.status(400).send('Build SHA1 checksum is different')
-  } catch (err) {
-    console.error(err)
-    return res.status(500).send('Cannot check project checksum')
-  }
+      const results = await Promise.all([
+        (async () => {
+          const file = await readFileAsync(path.resolve(process.cwd(), 'package.json'))
+          return JSON.parse(file)
+        })(),
+        installAsync(process.cwd())
+      ])
 
-  console.log('Finished!')
-  res.end()
+      pkg = results[0]
+    } catch (err) {
+      console.error(err)
+      return closeConnection(socket, 'Cannot install project dependencies')
+    }
+
+    try {
+      notifyMessage(socket, 'Building repo...')
+      await runAsync('build')
+    } catch (err) {
+      console.error(err)
+      return closeConnection(socket, 'Cannot build project')
+    }
+
+    try {
+      notifyMessage(socket, 'Checking checksum...')
+      const sum = crypto.createHash('sha1')
+      const file = await readFileAsync(path.resolve(process.cwd(), pkg.bin))
+      sum.update(file)
+      if (sum.digest('hex') !== pkg.checksums.sha1) return closeConnection(socket, 'Build SHA1 checksum is different')
+    } catch (err) {
+      console.error(err)
+      return closeConnection(socket, 'Cannot check project checksum')
+    }
+
+    notifyMessage(socket, 'Package published successfully!')
+    socket.disconnect(true)
+  })
 })
 
-server.listen(port, () => {
+http.listen(port, () => {
   console.log(`Server listening on port ${port}`)
 })
