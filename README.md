@@ -4,7 +4,7 @@ Secure NPM Proof of Concept
 This is an attempt to make NPM secure when a package is shipped with compiled Javascript.
 
 ## The algorithm
-A NPM package containing compiled Javascript (so called binaries) MUST have the following info inside the `package.json`:
+A NPM package containing compiled Javascript (so called binaries) **MUST** have the following info inside the `package.json`:
 
 - a property called [bin](https://docs.npmjs.com/files/package.json#bin) containing the binary file path
 - a property called [checksums](http://wiki.commonjs.org/wiki/Packages/1.1) containing the checksum (SHA1) of the binary file
@@ -47,10 +47,10 @@ Steps from you as the package owner:
  - publish with snpm
 
 Steps from snpm:
- - snpm receives just the repo url (Github)
- - snpm downloads the repo from repo url
+ - snpm receives the repo url (Github), the package version and the checksum
+ - snpm downloads the repo from the url
  - snpm installs every deps
- - snpm runs build steps (snpm run build)
+ - snpm runs build steps (`snpm run build`)
  - snpm generates build hashes
  - snpm checks build hashes with those inside the package.json
  - snpm registers the build if they're ok, otherwise it returns a 400
@@ -67,15 +67,3 @@ It reads from package.json and sends the following info to the registry:
 ```bash
 $ snpm publish
 ```
-Follows the list of action taken from `snpm`:
- 
- - download version tarball from Github -> fetch -> https://www.npmjs.com/package/targz V
- - install deps with `npm i` -> npm
- - build with `npm run build` -> npm.commands.run ??? V
- - hash sum of dist files -> https://www.npmjs.com/package/sha1-file || https://www.npmjs.com/package/hash-files V without a lib
- - verify hashes -> string check
- 
-Test:
- - check if npm.commands.run exists
- - test npm targz
- - test sha1file
