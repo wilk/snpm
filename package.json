@@ -13,6 +13,7 @@
   },
   "devDependencies": {},
   "scripts": {
+    "prestart": "npm i",
     "start": "node registry.js"
   },
   "repository": {
