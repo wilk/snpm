@@ -56,11 +56,17 @@ Steps from snpm:
  - snpm registers the build if they're ok, otherwise it returns a 400
 
 ### SNPM usage
+First of all, clone the repository:
 
-#### Publish
+```bash
+$ git clone https://github.com/wilk/snpm.git
+$ cd snpm
+```
+
 SNPM comes with two tools: `registry` and `snpm`.
+These tools will communicate through websockets because async operations may require too much time for a single HTTP connection.
 
-First of all, start the `registry`:
+So, start the `registry`:
 
 ```bash
 $ docker-compose up
@@ -93,4 +99,4 @@ $ node snpm.js node_modules/thanc
 ```
 
 With that command, you're simulating `snpm publish` feature: check out your command line windows to see what's going on between the `snpm` and the `registry`.
-Basically, the `registry` is waiting for new connections (websocket connections): when `snpm` is invoked with a path (of the package you want to publish), it reads the `package.json` from it and uploads the information to the `registry`.
+Basically, the `registry` is waiting for new connections: when `snpm` is invoked with a path (of the package you want to publish), it reads the `package.json` from it and uploads the information to the `registry`.
