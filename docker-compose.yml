@@ -3,7 +3,7 @@ version: "3"
 services:
   snpm:
     command: "npm start"
-    image: node:9.4.0-alpine
+    image: node:10.1.0-alpine
     working_dir: /opt/app
     environment:
       - REGISTRY_PORT=3000
