@@ -58,12 +58,39 @@ Steps from snpm:
 ### SNPM usage
 
 #### Publish
-It reads from package.json and sends the following info to the registry:
+SNPM comes with two tools: `registry` and `snpm`.
 
- - repository url
- - version
- - checksums
+First of all, start the `registry`:
 
 ```bash
-$ snpm publish
+$ docker-compose up
 ```
+
+Or directly with NPM:
+
+```bash
+$ npm start
+```
+
+Then, download a package that follows the above rules list and use `snpm` to publish it.
+For instance, you can try with [thanc](https://github.com/wilk/thanc) that has been built with this concept in mind:
+
+```bash
+$ docker-compose exec snpm sh
+$ npm install thanc
+```
+
+Or directly with NPM:
+
+```bash
+$ npm install thanc
+```
+
+Now, you're ready to use `snpm`:
+
+```bash
+$ node snpm.js node_modules/thanc
+```
+
+With that command, you're simulating `snpm publish` feature: check out your command line windows to see what's going on between the `snpm` and the `registry`.
+Basically, the `registry` is waiting for new connections (websocket connections): when `snpm` is invoked with a path (of the package you want to publish), it reads the `package.json` from it and uploads the information to the `registry`.
