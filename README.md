@@ -3,6 +3,8 @@ Secure NPM Proof of Concept
 
 This is an attempt to make NPM secure when a package is shipped with compiled Javascript.
 
+It has been used as a reference for [SNPM RFC](https://github.com/npm/rfcs/pull/16).
+
 ## The algorithm
 A NPM package containing compiled Javascript (so called binaries) **MUST** have the following info inside the `package.json`:
 
